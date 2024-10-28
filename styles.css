@@ -1,0 +1,16 @@
+.is-hovering-suggestion {
+	background-color: var(--background-modifier-hover);
+	/* Theme-compatible hover color */
+	color: var(--text-accent);
+	/* Theme-compatible text color */
+	cursor: pointer;
+}
+
+.my-scrollable-suggestions {
+	max-height: 200px;
+	/* Set a maximum height for vertical scrolling */
+	overflow-y: auto;
+	/* Enable vertical scrolling */
+	overflow-x: auto;
+	/* Enable horizontal scrolling */
+}
