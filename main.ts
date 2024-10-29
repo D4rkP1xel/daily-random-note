@@ -1,21 +1,27 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TextComponent, TFolder } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, TextComponent } from 'obsidian';
 import { createPopper, Instance } from '@popperjs/core';
-import { addPathToPathList, getFolderPaths } from 'utils/pathOperations';
-// Remember to rename these classes and interfaces!
+import { addPathToPathList, getFolderPaths, selectRandomFileFromPaths } from 'utils/pathOperations';
+import { compareDates, getDayString, getTomorrowDayString, isTimeReadyToShowNote, timeDif } from 'utils/timeUtils';
 
 interface RandomInstance {
-	path: string,
+	includePaths: string,
+	excludePaths: string,
 	name: string,
+	openOnStartup: boolean,
 }
 
 interface MyPluginSettings {
-	foldersToGetFilesFrom: string[],
 	randomInstances: RandomInstance[],
+
+	// DD-MM-YYYY
+	nextRandomNotesDay: string,
+	timeToResetDailyRandomNotes: [number, number]
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
-	foldersToGetFilesFrom: [],
 	randomInstances: [],
+	nextRandomNotesDay: getTomorrowDayString(),
+	timeToResetDailyRandomNotes: [8, 0]
 }
 
 export default class MyPlugin extends Plugin {
@@ -24,12 +30,13 @@ export default class MyPlugin extends Plugin {
 	private dropdown: HTMLDivElement | null = null
 	private isRandomNoteSuggestionsOpened = false
 	private outsideClickListener: ((event: any) => void) | null = null
-
+	public currentTimeDif: string = ""
+	private settingsTab: SampleSettingTab | null = null;
 	async onload() {
 		await this.loadSettings();
 
 		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Random Note Picker', (evt: MouseEvent) => {
+		const ribbonIconEl = this.addRibbonIcon('dice', 'Daily Random Note', (evt: MouseEvent) => {
 			// Called when the user clicks the icon.
 			if (!this.isRandomNoteSuggestionsOpened) {
 				//new Notice('This is a notice!');
@@ -55,8 +62,10 @@ export default class MyPlugin extends Plugin {
 					option.classList.add('suggestion-item');
 					option.textContent = randomInstance.name;
 					option.addEventListener('mousedown', () => {
+						this.openRandomNoteWithInstance(randomInstance)
 						this.dropdown?.remove();
 						this.popperInstance?.destroy();
+						this.isRandomNoteSuggestionsOpened = false
 					});
 					this.dropdown?.appendChild(option);
 				});
@@ -67,6 +76,7 @@ export default class MyPlugin extends Plugin {
 						this.popperInstance?.destroy();
 						if (this.outsideClickListener)
 							document.removeEventListener('mousedown', this.outsideClickListener);
+						this.isRandomNoteSuggestionsOpened = false
 					}
 				};
 
@@ -125,7 +135,9 @@ export default class MyPlugin extends Plugin {
 		//});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.settingsTab = new SampleSettingTab(this.app, this)
+
+		this.addSettingTab(this.settingsTab);
 
 		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// Using this function will automatically remove the event listener when this plugin is disabled.
@@ -134,7 +146,56 @@ export default class MyPlugin extends Plugin {
 		//});
 
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		//this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+		this.registerInterval(window.setInterval(() => this.checkTimeAndOpenRandomNotes(), 1000 * 5));
+		this.registerInterval(window.setInterval(() => {
+			let timeSplit = this.settings.nextRandomNotesDay.split("/")
+			let timeToCheck: Date = new Date()
+			timeToCheck.setDate(parseInt(timeSplit[0]))
+			timeToCheck.setMonth(parseInt(timeSplit[1]))
+			timeToCheck.setFullYear(parseInt(timeSplit[2]))
+			timeToCheck.setHours(this.settings.timeToResetDailyRandomNotes[0])
+			timeToCheck.setMinutes(this.settings.timeToResetDailyRandomNotes[1])
+			this.currentTimeDif = timeDif(new Date(), timeToCheck)
+			console.log(this.currentTimeDif)
+			// Update the settings tab display
+			this.settingsTab?.updateTimeDisplay();
+		}, 1000));
+
+		// Wait for the vault and workspace to fully load
+		this.app.workspace.onLayoutReady(async () => {
+			// Now it's safe to call getAbstractFileByPath
+
+			// TEST DELETE AFTER
+			//const today = getDayString(new Date())
+			//this.settings.nextRandomNotesTimestamp = today
+			//await this.saveSettings();
+			// TEST END
+			await this.checkTimeAndOpenRandomNotes()
+		});
+	}
+
+	async checkTimeAndOpenRandomNotes() {
+		const today = getDayString(new Date())
+
+		let cmp = compareDates(today, this.settings.nextRandomNotesDay)
+		if (cmp == 1 || (cmp == 0 && isTimeReadyToShowNote([new Date().getHours(), new Date().getMinutes()], this.settings.timeToResetDailyRandomNotes))) {
+			this.settings.nextRandomNotesDay = getTomorrowDayString()
+			await this.saveSettings();
+			this.settings.randomInstances.forEach((randomInstance) => {
+				if (randomInstance.openOnStartup)
+					this.openRandomNote(randomInstance)
+			})
+		}
+
+	}
+
+	openRandomNoteWithInstance(randomInstance: RandomInstance) {
+		let isExclude = randomInstance.excludePaths != null && randomInstance.excludePaths != ""
+		selectRandomFileFromPaths(this.app, isExclude ? randomInstance.excludePaths : randomInstance.includePaths, randomInstance.name, !isExclude)
+	}
+
+	openRandomNote(randomInstance: RandomInstance) {
+		this.openRandomNoteWithInstance(randomInstance)
 	}
 
 	onunload() {
@@ -173,8 +234,13 @@ class SampleSettingTab extends PluginSettingTab {
 	//	"Another/Folder/Path/Another/Folder/Path/Another/Folder/Path, Folder1", "Folder2/Subfolder", "Another/Folder/Path",
 	//	"Another/Folder/Path/Another/Folder/Path/Another/Folder/Path, Folder1", "Folder2/Subfolder", "Another/Folder/Path",
 	//	"Another/Folder/Path/Another/Folder/Path/Another/Folder/Path/Another/Folder/Path/Another/Folder/Path/Another/Folder/Path"]; // Local array of folder paths
-	private popperInstance: null | Instance = null
-	private folderPaths: string[] = []
+	private includedFoldersPopperInstance: null | Instance = null
+	private excludedFoldersPopperInstance: null | Instance = null
+
+	private suggestionFolderPaths: string[] = []
+
+	private timeLeftSetting: HTMLElement | null = null;
+
 	constructor(app: App, plugin: MyPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
@@ -188,19 +254,72 @@ class SampleSettingTab extends PluginSettingTab {
 		// Adding a setting with a button
 		new Setting(containerEl)
 			.setName("Add One Random Instance")
-			.setDesc("Click to add one folder path to the list of folder paths.")
 			.addButton((button) =>
 				button
 					.setButtonText("Add New")
 					.setCta() // Optional: makes the button more prominent
 					.onClick(async () => {
 						// Define what happens when the button is clicked
-						this.plugin.settings.randomInstances.push({ name: "New Random Instance", path: "" }); // Example action
+						this.plugin.settings.randomInstances.push({ name: "New Random Instance", includePaths: "", excludePaths: "", openOnStartup: true });
 						await this.plugin.saveSettings();
 						// Refresh the settings tab to show the new input
 						this.display();
 					})
 			);
+
+		const timeSetting = new Setting(containerEl)
+			.setName("Daily Note Reset Time")
+			.setDesc("Select the time at which the daily timer resets.");
+
+		// Create a container for the hour and minute selects, styled to align horizontally
+		const timeSelectContainer = timeSetting.controlEl.createDiv("time-select-container");
+		timeSelectContainer.style.display = "flex";
+		timeSelectContainer.style.gap = "8px";
+		timeSelectContainer.style.marginLeft = "auto"; // Pushes it to the right side of the setting
+
+		const hourSelect = document.createElement("select");
+		for (let i = 0; i < 24; i++) {
+			const option = document.createElement("option");
+			option.value = i.toString();
+			option.textContent = i.toString().padStart(2, '0');
+			hourSelect.appendChild(option);
+		}
+		timeSelectContainer.appendChild(hourSelect);
+		// Add the colon between the selects
+		const colon = document.createElement("span");
+		colon.textContent = ":";
+		colon.style.alignSelf = "center"; // Centers the colon vertically
+		timeSelectContainer.appendChild(colon);
+
+		const minuteSelect = document.createElement("select");
+		for (let i = 0; i < 60; i += 1) {
+			const option = document.createElement("option");
+			option.value = i.toString();
+			option.textContent = i.toString().padStart(2, '0');
+			minuteSelect.appendChild(option);
+		}
+		timeSelectContainer.appendChild(minuteSelect); hourSelect.value = this.plugin.settings.timeToResetDailyRandomNotes[0].toString()
+		minuteSelect.value = this.plugin.settings.timeToResetDailyRandomNotes[1].toString()
+
+		// Update settings when values change
+		hourSelect.addEventListener("change", async () => {
+			this.plugin.settings.timeToResetDailyRandomNotes[0] = parseInt(hourSelect.value);
+			await this.plugin.saveSettings();
+		});
+		minuteSelect.addEventListener("change", async () => {
+			this.plugin.settings.timeToResetDailyRandomNotes[1] = parseInt(minuteSelect.value);
+			await this.plugin.saveSettings();
+		});
+
+		// Create a placeholder setting for "Time left"
+		this.timeLeftSetting = new Setting(containerEl)
+			.setName("Time left: ")
+			.setDesc("Time until Daily Random Notes resets.")
+			.setClass("setting-item-name")
+			.settingEl;
+
+		// Initial time display
+		this.updateTimeDisplay();
 
 		this.plugin.settings.randomInstances.forEach((randomInstance, randomInstanceIndex) => {
 			containerEl.createEl('h3', { text: `${randomInstance.name}` });
@@ -218,30 +337,39 @@ class SampleSettingTab extends PluginSettingTab {
 						this.display()
 					})
 				});
+			new Setting(containerEl)
+				.setName("Open on Startup?")
+				.addToggle(async (toggle) => {
+					toggle.setValue(randomInstance.openOnStartup)
+						.onChange(async (value) => {
+							this.plugin.settings.randomInstances[randomInstanceIndex].openOnStartup = value;
+							await this.plugin.saveSettings();
+						})
+				});
 
 			new Setting(containerEl)
-				.setName('Folder to get random files from')
-				.setDesc('Path to folder')
+				.setName('Include Folders')
+				.setDesc('Included paths to folders, separated by ","')
 				.addText(text => {
-					text.setPlaceholder('Select folder path')
-						.setValue(randomInstance.path)
+					text.setPlaceholder('/example/one, /example/two')
+						.setValue(randomInstance.includePaths)
 						.onChange(async (value) => {
-							this.plugin.settings.randomInstances[randomInstanceIndex].path = value;
+							this.plugin.settings.randomInstances[randomInstanceIndex].includePaths = value;
 							await this.plugin.saveSettings();
-							this.folderPaths = getFolderPaths(this.plugin.settings.randomInstances[randomInstanceIndex].path);
+							this.suggestionFolderPaths = getFolderPaths(this.plugin.settings.randomInstances[randomInstanceIndex].includePaths);
 							this.resetDropdown()
-							this.populateDropdown(text, randomInstanceIndex)
+							this.populateDropdown(text, randomInstanceIndex, true)
 						});
 
 					// Autocomplete functionality
 					text.inputEl.addEventListener('focus', async () => {
-						this.folderPaths = getFolderPaths(this.plugin.settings.randomInstances[randomInstanceIndex].path);
-						this.showSuggestions(text, randomInstanceIndex);
+						this.suggestionFolderPaths = getFolderPaths(this.plugin.settings.randomInstances[randomInstanceIndex].includePaths);
+						this.showSuggestions(text, randomInstanceIndex, true);
 					});
 
 					// Remove dropdown when the input loses focus
 					text.inputEl.addEventListener('blur', () => {
-						this.popperInstance?.destroy();
+						this.includedFoldersPopperInstance?.destroy();
 
 						Array.from(document.getElementsByClassName("folder-paths-suggestions")).forEach((element: HTMLElement) => {
 							element.remove();
@@ -249,12 +377,42 @@ class SampleSettingTab extends PluginSettingTab {
 					});
 
 				});
+
 			new Setting(containerEl)
-				.setName("Remove Random Instance")
-				.setDesc("Click to remove the random instance above.")
+				.setName('Exclude Folders')
+				.setDesc('Excluded paths to folders, separated by "," (if this field is NOT empty, obsidian will search for every single file in your vault EXCEPT the folders specified here. "Include Folders" will be ignored as well.)')
+				.addText(text => {
+					text.setPlaceholder('/example/one, /example/two')
+						.setValue(randomInstance.excludePaths)
+						.onChange(async (value) => {
+							this.plugin.settings.randomInstances[randomInstanceIndex].excludePaths = value;
+							await this.plugin.saveSettings();
+							this.suggestionFolderPaths = getFolderPaths(this.plugin.settings.randomInstances[randomInstanceIndex].excludePaths);
+							this.resetDropdown()
+							this.populateDropdown(text, randomInstanceIndex, false)
+						});
+
+					// Autocomplete functionality
+					text.inputEl.addEventListener('focus', async () => {
+						this.suggestionFolderPaths = getFolderPaths(this.plugin.settings.randomInstances[randomInstanceIndex].excludePaths);
+						this.showSuggestions(text, randomInstanceIndex, false);
+					});
+
+					// Remove dropdown when the input loses focus
+					text.inputEl.addEventListener('blur', () => {
+						this.excludedFoldersPopperInstance?.destroy();
+
+						Array.from(document.getElementsByClassName("folder-paths-suggestions")).forEach((element: HTMLElement) => {
+							element.remove();
+						});
+					});
+				});
+
+			new Setting(containerEl)
+				.setName("Delete \"" + randomInstance.name + "\"")
 				.addButton((button) =>
 					button
-						.setButtonText("Remove")
+						.setButtonText("Delete")
 						.setWarning() // Optional: makes the button more prominent
 						.onClick(async () => {
 							// Define what happens when the button is clicked
@@ -267,19 +425,25 @@ class SampleSettingTab extends PluginSettingTab {
 
 			containerEl.createEl('hr'); // This adds a horizontal rule
 		})
-
-
-
 	}
 
 	close(): void {
-		this.popperInstance?.destroy();
+		this.includedFoldersPopperInstance?.destroy();
+		this.excludedFoldersPopperInstance?.destroy();
 		//this.suggestEl.detach();
 	}
-
+	updateTimeDisplay() {
+		if (this.timeLeftSetting) {
+			const nameEl = this.timeLeftSetting.querySelector('.setting-item-name');
+			console.log(nameEl)
+			if (nameEl) {
+				nameEl.textContent = `Time left: ${this.plugin.currentTimeDif}`;
+			}
+		}
+	}
 
 	// Show suggestions in an autocomplete dropdown
-	private showSuggestions(textEl: TextComponent, randomInstanceIndex: number): void {
+	private showSuggestions(textEl: TextComponent, randomInstanceIndex: number, isIncludedPath: boolean): void {
 		// Create dropdown for suggestions
 		const dropdown = document.createElement('div');
 		dropdown.style.zIndex = '9998';
@@ -287,11 +451,18 @@ class SampleSettingTab extends PluginSettingTab {
 		document.body.appendChild(dropdown);
 
 		// Create popper instance
-		this.popperInstance = createPopper(textEl.inputEl, dropdown, {
-			placement: 'bottom-start',
-			modifiers: [{ name: 'offset', options: { offset: [0, 4] } }]
-		});
-		this.populateDropdown(textEl, randomInstanceIndex)
+		if (isIncludedPath) {
+			this.includedFoldersPopperInstance = createPopper(textEl.inputEl, dropdown, {
+				placement: 'bottom-start',
+				modifiers: [{ name: 'offset', options: { offset: [0, 4] } }]
+			});
+		} else {
+			this.excludedFoldersPopperInstance = createPopper(textEl.inputEl, dropdown, {
+				placement: 'bottom-start',
+				modifiers: [{ name: 'offset', options: { offset: [0, 4] } }]
+			});
+		}
+		this.populateDropdown(textEl, randomInstanceIndex, isIncludedPath)
 	}
 
 	private resetDropdown() {
@@ -299,11 +470,11 @@ class SampleSettingTab extends PluginSettingTab {
 		dropdown.innerHTML = ''
 	}
 
-	private populateDropdown(textEl: TextComponent, randomInstanceIndex: number) {
+	private populateDropdown(textEl: TextComponent, randomInstanceIndex: number, isIncludedPath: boolean) {
 		const dropdown = document.getElementsByClassName("folder-paths-suggestions")[0]
 
 		// Populate the dropdown with folder path options
-		this.folderPaths.forEach(path => {
+		this.suggestionFolderPaths.forEach(path => {
 			const option = document.createElement('div');
 
 			// Add hover effect
@@ -315,12 +486,18 @@ class SampleSettingTab extends PluginSettingTab {
 			option.textContent = path;
 			option.addEventListener('mousedown', async (event) => {
 				event.preventDefault(); // prevent the blur from being called
-				let newPathlist = addPathToPathList(this.plugin.settings.randomInstances[randomInstanceIndex].path, path);
-				textEl.setValue(newPathlist);
-				this.plugin.settings.randomInstances[randomInstanceIndex].path = newPathlist
+				if (isIncludedPath) {
+					let newPathlist = addPathToPathList(this.plugin.settings.randomInstances[randomInstanceIndex].includePaths, path);
+					textEl.setValue(newPathlist);
+					this.plugin.settings.randomInstances[randomInstanceIndex].includePaths = newPathlist
+				} else {
+					let newPathlist = addPathToPathList(this.plugin.settings.randomInstances[randomInstanceIndex].excludePaths, path);
+					textEl.setValue(newPathlist);
+					this.plugin.settings.randomInstances[randomInstanceIndex].excludePaths = newPathlist
+				}
 				await this.plugin.saveSettings();
 				dropdown.remove();
-				this.popperInstance?.destroy();
+				this.includedFoldersPopperInstance?.destroy();
 				textEl.inputEl.blur()
 			});
 			dropdown.appendChild(option);
