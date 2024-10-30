@@ -264,7 +264,7 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		const timeSetting = new Setting(containerEl)
-			.setName("Daily Note Reset Time")
+			.setName("Daily note reset time")
 			.setDesc("Select the time at which the daily timer resets.");
 
 		// Create a container for the hour and minute selects, styled to align horizontally
@@ -332,24 +332,24 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 		// Create a placeholder setting for "Time left"
 		this.timeLeftSetting = new Setting(containerEl)
 			.setName("Time left: ")
-			.setDesc("Time until Daily Random Notes resets.")
+			.setDesc("Time until daily random notes resets.")
 			.setClass("setting-item-name")
 			.settingEl;
 
 		// Initial time display
 		this.updateTimeDisplay();
-		containerEl.createEl('h1', { text: `Manage Random Instances` });
+		containerEl.createEl('h1', { text: `Manage random instances` });
 
 		// Adding a setting with a button
 		let addInstance = new Setting(containerEl)
-			.setName("Add One Random Instance")
+			.setName("Add one random instance")
 			.addButton((button) =>
 				button
-					.setButtonText("Add New")
+					.setButtonText("Add new")
 					.setCta() // Optional: makes the button more prominent
 					.onClick(async () => {
 						// Define what happens when the button is clicked
-						this.plugin.settings.randomInstances.push({ name: "New Random Instance", includePaths: "", excludePaths: "", openOnStartup: true, useTags: false, tags: "", allTagsRequired: true, isTabOpen: true, });
+						this.plugin.settings.randomInstances.push({ name: "New random instance", includePaths: "", excludePaths: "", openOnStartup: true, useTags: false, tags: "", allTagsRequired: true, isTabOpen: true, });
 						await this.plugin.saveSettings();
 						// Refresh the settings tab to show the new input
 						this.display();
@@ -403,7 +403,7 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 				});
 
 			new Setting(settingsContent)
-				.setName("Open on Startup/Reset?")
+				.setName("Open on startup/reset?")
 				.setDesc("If toggled on, when the reset time hits 0, random files from this instance will automatically open.")
 				.addToggle(async (toggle) => {
 					toggle.setValue(randomInstance.openOnStartup)
@@ -414,7 +414,7 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 				});
 
 			new Setting(settingsContent)
-				.setName('Include Folders')
+				.setName('Include folders')
 				.setDesc('Included paths to folders, separated by ","')
 				.addText(text => {
 					text.setPlaceholder('/example/one, /example/two')
@@ -445,7 +445,7 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 				});
 
 			new Setting(settingsContent)
-				.setName('Exclude Folders')
+				.setName('Exclude folders')
 				.setDesc('Excluded paths to folders, separated by "," (if this field is NOT empty, obsidian will search for every single file in your vault EXCEPT the folders specified here. "Include Folders" will be ignored as well.)')
 				.addText(text => {
 					text.setPlaceholder('/example/one, /example/two')
