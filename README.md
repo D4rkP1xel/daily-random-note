@@ -28,7 +28,7 @@ In case you don't want the daily feature and just want to read a random note of 
 
 ## Bugs / Missing features?
 
-*Daily Random Note* was built to solve my own challenges, so it’s tailored to my needs. If you find a bug or would like a new feature, don’t hesitate to email me at alexsilvawork17@gmail.com. The repo is public, so feel free to contribute!
+**Daily Random Note** was built to solve my own challenges, so it’s tailored to my needs. If you find a bug or would like a new feature, don’t hesitate to email me at alexsilvawork17@gmail.com. The repo is public, so feel free to contribute!
 
 ## Funding URL
 
