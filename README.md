@@ -17,16 +17,17 @@ At the reset time, obsidian will open all your random notes in new tabs.
 
 Here's an example of how your settings should look like:
 
-![image](https://github.com/user-attachments/assets/a97e628d-fee1-4a45-af5e-515cc895735a)
+![image](https://github.com/user-attachments/assets/7c9b8813-f3a5-4c0d-ad25-6c487515b3ae)
 
-![image](https://github.com/user-attachments/assets/7788f73d-15de-433f-9e05-5c0f14d1d7c5)
+
+![image](https://github.com/user-attachments/assets/868f4d5e-a79b-4057-87d1-ff1d78e3055b)
 
 
 In case you don't want the daily feature and just want to read a random note of yours, that's possible using the ribbon icon (see figure below).
 
 ![image](https://github.com/user-attachments/assets/a5dedb2c-f293-492e-9516-6a88acf7f8cb)
 
-## Bugs / Missing features?
+## Report bugs / missing features
 
 **Daily Random Note** was built to solve my own challenges, so it’s tailored to my needs. If you find a bug or would like a new feature, don’t hesitate to email me at alexsilvawork17@gmail.com. The repo is public, so feel free to contribute!
 
