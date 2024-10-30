@@ -1,11 +1,15 @@
 import { App, Plugin, PluginSettingTab, Setting, TextComponent } from 'obsidian';
 import { createPopper, Instance } from '@popperjs/core';
 import { addPathToPathList, getFolderPaths, selectRandomFileFromPaths } from 'utils/pathOperations';
-import { compareDates, getDayString, getTomorrowDayString, isTimeReadyToShowNote, timeDif } from 'utils/timeUtils';
+import { compareDates, formatTime, getDayFromString, getDayString, getTomorrowDayString, isTimeReadyToShowNote, timeDif } from 'utils/timeUtils';
 
 interface RandomInstance {
+	isTabOpen: boolean,
 	includePaths: string,
 	excludePaths: string,
+	useTags: boolean,
+	allTagsRequired: boolean,
+	tags: string,
 	name: string,
 	openOnStartup: boolean,
 }
@@ -148,16 +152,9 @@ export default class MyPlugin extends Plugin {
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
 		this.registerInterval(window.setInterval(() => this.checkTimeAndOpenRandomNotes(), 1000 * 5));
 		this.registerInterval(window.setInterval(() => {
-			let timeSplit = this.settings.nextRandomNotesDay.split("/")
-			let timeToCheck: Date = new Date()
-			timeToCheck.setDate(parseInt(timeSplit[0]))
-			timeToCheck.setMonth(parseInt(timeSplit[1]))
-			timeToCheck.setFullYear(parseInt(timeSplit[2]))
-			timeToCheck.setHours(this.settings.timeToResetDailyRandomNotes[0])
-			timeToCheck.setMinutes(this.settings.timeToResetDailyRandomNotes[1])
-			timeToCheck.setSeconds(0)
-
-			this.currentTimeDif = timeDif(new Date(), timeToCheck)
+			var timeToCheck = this.getDailyRandomNoteResetTime()
+			let timeDifVar = timeDif(new Date(), timeToCheck)
+			this.currentTimeDif = formatTime(timeDifVar[0], timeDifVar[1], timeDifVar[2])
 			// Update the settings tab display
 			this.settingsTab?.updateTimeDisplay();
 		}, 1000));
@@ -174,7 +171,18 @@ export default class MyPlugin extends Plugin {
 			await this.checkTimeAndOpenRandomNotes()
 		});
 	}
+	getDailyRandomNoteResetTime() {
+		let timeSplit = this.settings.nextRandomNotesDay.split("/")
+		let timeToCheck: Date = new Date()
+		timeToCheck.setDate(parseInt(timeSplit[0]))
+		timeToCheck.setMonth(parseInt(timeSplit[1]))
+		timeToCheck.setFullYear(parseInt(timeSplit[2]))
+		timeToCheck.setHours(this.settings.timeToResetDailyRandomNotes[0])
+		timeToCheck.setMinutes(this.settings.timeToResetDailyRandomNotes[1])
+		timeToCheck.setSeconds(0)
 
+		return timeToCheck
+	}
 	async checkTimeAndOpenRandomNotes() {
 		const today = getDayString(new Date())
 
@@ -192,7 +200,10 @@ export default class MyPlugin extends Plugin {
 
 	openRandomNoteWithInstance(randomInstance: RandomInstance) {
 		let isExclude = randomInstance.excludePaths != null && randomInstance.excludePaths != ""
-		selectRandomFileFromPaths(this.app, isExclude ? randomInstance.excludePaths : randomInstance.includePaths, randomInstance.name, !isExclude)
+		let paths = isExclude ? randomInstance.excludePaths : randomInstance.includePaths
+		let tags = randomInstance.useTags ? randomInstance.tags : ""
+
+		selectRandomFileFromPaths(this.app, paths, tags, randomInstance.allTagsRequired, randomInstance.name, !isExclude)
 	}
 
 	openRandomNote(randomInstance: RandomInstance) {
@@ -289,10 +300,32 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 		// Update settings when values change
 		hourSelect.addEventListener("change", async () => {
 			this.plugin.settings.timeToResetDailyRandomNotes[0] = parseInt(hourSelect.value);
+			let timeDifVar = timeDif(new Date(), this.plugin.getDailyRandomNoteResetTime())
+			if (timeDifVar[0] >= 24) {
+				this.plugin.settings.nextRandomNotesDay = getDayString(new Date())
+			}
+			let nextRandomNotesDay = getDayFromString(this.plugin.settings.nextRandomNotesDay)
+			let today = new Date()
+			if (nextRandomNotesDay.getDate() == today.getDate() &&
+				(this.plugin.settings.timeToResetDailyRandomNotes[0] < today.getHours()) ||
+				(this.plugin.settings.timeToResetDailyRandomNotes[0] == today.getHours() && this.plugin.settings.timeToResetDailyRandomNotes[1] < today.getMinutes())) {
+				this.plugin.settings.nextRandomNotesDay = getTomorrowDayString()
+			}
 			await this.plugin.saveSettings();
 		});
 		minuteSelect.addEventListener("change", async () => {
 			this.plugin.settings.timeToResetDailyRandomNotes[1] = parseInt(minuteSelect.value);
+			let timeDifVar = timeDif(new Date(), this.plugin.getDailyRandomNoteResetTime())
+			if (timeDifVar[0] >= 24) {
+				this.plugin.settings.nextRandomNotesDay = getDayString(new Date())
+			}
+			let nextRandomNotesDay = getDayFromString(this.plugin.settings.nextRandomNotesDay)
+			let today = new Date()
+			if (nextRandomNotesDay.getDate() == today.getDate() &&
+				(this.plugin.settings.timeToResetDailyRandomNotes[0] < today.getHours()) ||
+				(this.plugin.settings.timeToResetDailyRandomNotes[0] == today.getHours() && this.plugin.settings.timeToResetDailyRandomNotes[1] < today.getMinutes())) {
+				this.plugin.settings.nextRandomNotesDay = getTomorrowDayString()
+			}
 			await this.plugin.saveSettings();
 		});
 
@@ -308,7 +341,7 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 		containerEl.createEl('h1', { text: `Manage Random Instances` });
 
 		// Adding a setting with a button
-		new Setting(containerEl)
+		let addInstance = new Setting(containerEl)
 			.setName("Add One Random Instance")
 			.addButton((button) =>
 				button
@@ -316,16 +349,19 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 					.setCta() // Optional: makes the button more prominent
 					.onClick(async () => {
 						// Define what happens when the button is clicked
-						this.plugin.settings.randomInstances.push({ name: "New Random Instance", includePaths: "", excludePaths: "", openOnStartup: true });
+						this.plugin.settings.randomInstances.push({ name: "New Random Instance", includePaths: "", excludePaths: "", openOnStartup: true, useTags: false, tags: "", allTagsRequired: true, isTabOpen: true, });
 						await this.plugin.saveSettings();
 						// Refresh the settings tab to show the new input
 						this.display();
 					})
 			);
-
+		addInstance.settingEl.style.marginBottom = "48px"
 
 		this.plugin.settings.randomInstances.forEach((randomInstance, randomInstanceIndex) => {
-			const collapsibleHeader = containerEl.createDiv();
+			const instanceParentDiv = containerEl.createDiv();
+			instanceParentDiv.style.marginBottom = "48px"
+
+			const collapsibleHeader = instanceParentDiv.createDiv();
 			collapsibleHeader.style.display = "flex";
 			collapsibleHeader.style.alignItems = "center";
 			collapsibleHeader.style.justifyContent = "space-between";
@@ -333,17 +369,21 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 			collapsibleHeader.createEl('h3', { text: `${randomInstance.name}` });
 
 			// Create the toggle button and add it to the same div
-			const toggleButton = collapsibleHeader.createEl("button", { text: "►" });
-			const settingsContent = containerEl.createDiv();
-			settingsContent.style.display = "none"; // Set initial display
+			const toggleButton = collapsibleHeader.createEl("button", { text: randomInstance.isTabOpen ? "▼" : "►" });
+			const settingsContent = instanceParentDiv.createDiv();
+			settingsContent.style.display = randomInstance.isTabOpen ? "block" : "none"; // Set initial display
 
 			// Toggle functionality for the button
-			toggleButton.addEventListener("click", () => {
+			toggleButton.addEventListener("click", async () => {
 				if (settingsContent.style.display === "block") {
 					settingsContent.style.display = "none";
+					this.plugin.settings.randomInstances[randomInstanceIndex].isTabOpen = false;
+					await this.plugin.saveSettings()
 					toggleButton.textContent = "►"; // Change to right arrow to indicate collapsed
 				} else {
 					settingsContent.style.display = "block";
+					this.plugin.settings.randomInstances[randomInstanceIndex].isTabOpen = true;
+					await this.plugin.saveSettings()
 					toggleButton.textContent = "▼"; // Change back to down arrow to indicate expanded
 				}
 			});
@@ -363,7 +403,8 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 				});
 
 			new Setting(settingsContent)
-				.setName("Open on Startup?")
+				.setName("Open on Startup/Reset?")
+				.setDesc("If toggled on, when the reset time hits 0, random files from this instance will automatically open.")
 				.addToggle(async (toggle) => {
 					toggle.setValue(randomInstance.openOnStartup)
 						.onChange(async (value) => {
@@ -381,14 +422,14 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 						.onChange(async (value) => {
 							this.plugin.settings.randomInstances[randomInstanceIndex].includePaths = value;
 							await this.plugin.saveSettings();
-							this.suggestionFolderPaths = getFolderPaths(this.plugin.settings.randomInstances[randomInstanceIndex].includePaths);
+							this.suggestionFolderPaths = getFolderPaths(this.plugin.settings.randomInstances[randomInstanceIndex].includePaths, value);
 							this.resetDropdown()
 							this.populateDropdown(text, randomInstanceIndex, true)
 						});
 
 					// Autocomplete functionality
 					text.inputEl.addEventListener('focus', async () => {
-						this.suggestionFolderPaths = getFolderPaths(this.plugin.settings.randomInstances[randomInstanceIndex].includePaths);
+						this.suggestionFolderPaths = getFolderPaths(this.plugin.settings.randomInstances[randomInstanceIndex].includePaths, text.getValue());
 						this.showSuggestions(text, randomInstanceIndex, true);
 					});
 
@@ -412,15 +453,66 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 						.onChange(async (value) => {
 							this.plugin.settings.randomInstances[randomInstanceIndex].excludePaths = value;
 							await this.plugin.saveSettings();
-							this.suggestionFolderPaths = getFolderPaths(this.plugin.settings.randomInstances[randomInstanceIndex].excludePaths);
+							this.suggestionFolderPaths = getFolderPaths(this.plugin.settings.randomInstances[randomInstanceIndex].excludePaths, value);
 							this.resetDropdown()
 							this.populateDropdown(text, randomInstanceIndex, false)
 						});
 
 					// Autocomplete functionality
 					text.inputEl.addEventListener('focus', async () => {
-						this.suggestionFolderPaths = getFolderPaths(this.plugin.settings.randomInstances[randomInstanceIndex].excludePaths);
+						this.suggestionFolderPaths = getFolderPaths(this.plugin.settings.randomInstances[randomInstanceIndex].excludePaths, text.getValue());
 						this.showSuggestions(text, randomInstanceIndex, false);
+					});
+
+					// Remove dropdown when the input loses focus
+					text.inputEl.addEventListener('blur', () => {
+						this.excludedFoldersPopperInstance?.destroy();
+
+						Array.from(document.getElementsByClassName("folder-paths-suggestions")).forEach((element: HTMLElement) => {
+							element.remove();
+						});
+					});
+				});
+
+			new Setting(settingsContent)
+				.setName("Use tags for filtering?")
+				.addToggle(async (toggle) => {
+					toggle.setValue(randomInstance.useTags)
+						.onChange(async (value) => {
+							this.plugin.settings.randomInstances[randomInstanceIndex].useTags = value;
+							await this.plugin.saveSettings();
+							tagsContent.style.display = value ? "block" : "none";
+						})
+				});
+
+			const tagsContent = settingsContent.createDiv();
+			tagsContent.style.display = randomInstance.useTags ? "block" : "none"; // Set initial display
+			new Setting(tagsContent)
+				.setName("All tags required?")
+				.setDesc("If toggled on, obsidian will only search for files containing ALL tags specified. Otherwise any file containing at least one of the tags will be considered valid.")
+				.addToggle(async (toggle) => {
+					toggle.setValue(randomInstance.allTagsRequired)
+						.onChange(async (value) => {
+							this.plugin.settings.randomInstances[randomInstanceIndex].allTagsRequired = value;
+							await this.plugin.saveSettings();
+						})
+				});
+
+
+			new Setting(tagsContent)
+				.setName('Tags')
+				.setDesc('Insert tags, separated by ","')
+				.addText(text => {
+					text.setPlaceholder('#exampletag1, #exampletag2')
+						.setValue(this.plugin.settings.randomInstances[randomInstanceIndex].tags)
+						.onChange(async (value) => {
+							this.plugin.settings.randomInstances[randomInstanceIndex].tags = value;
+							await this.plugin.saveSettings();
+						});
+
+					// Autocomplete functionality
+					text.inputEl.addEventListener('focus', async () => {
+						this.suggestionFolderPaths = getFolderPaths(this.plugin.settings.randomInstances[randomInstanceIndex].tags, text.getValue());
 					});
 
 					// Remove dropdown when the input loses focus
@@ -448,7 +540,7 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 						})
 				);
 
-			containerEl.createEl('hr'); // This adds a horizontal rule
+			//containerEl.createEl('hr'); // This adds a horizontal rule
 		})
 	}
 

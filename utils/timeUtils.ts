@@ -4,6 +4,15 @@ export function getDayString(date: Date): string {
 	return date.getDate() + "/" + date.getMonth() + "/" + date.getFullYear()
 }
 
+export function getDayFromString(dateString: string): Date {
+	let date = new Date()
+	let dateStringSplit = dateString.split("/")
+	date.setDate(parseInt(dateStringSplit[0]))
+	date.setMonth(parseInt(dateStringSplit[1]))
+	date.setFullYear(parseInt(dateStringSplit[2]))
+	return date
+}
+
 export function getTomorrowDayString(): string {
 	const today = new Date();
 	const tomorrow = new Date(today);
@@ -43,7 +52,7 @@ export function isTimeReadyToShowNote(currentTime: [number, number], timeToCompa
 	return false
 }
 
-export function timeDif(currentTime: Date, timeToCheck: Date): string {
+export function timeDif(currentTime: Date, timeToCheck: Date): [number, number, number] {
 	// Calculate the difference in milliseconds
 	const diffInMilliseconds = currentTime.getTime() - timeToCheck.getTime();
 	// Calculate the total seconds from milliseconds
@@ -54,6 +63,10 @@ export function timeDif(currentTime: Date, timeToCheck: Date): string {
 	const minutes = Math.floor((Math.abs(totalSeconds) % 3600) / 60);
 	const seconds = Math.abs(totalSeconds) % 60;
 
+	return [hours, minutes, seconds]
+}
+
+export function formatTime(hours: number, minutes: number, seconds: number): string {
 	// Format to ensure two digits for each component
 	const formattedTime = [
 		String(hours).padStart(2, '0'),
@@ -62,4 +75,5 @@ export function timeDif(currentTime: Date, timeToCheck: Date): string {
 	].join(':');
 
 	return formattedTime;
+
 }
