@@ -1,3 +1,5 @@
+import { time } from "console";
+
 export function getDayString(date: Date): string {
 	return date.getDate() + "/" + date.getMonth() + "/" + date.getFullYear()
 }
@@ -44,7 +46,6 @@ export function isTimeReadyToShowNote(currentTime: [number, number], timeToCompa
 export function timeDif(currentTime: Date, timeToCheck: Date): string {
 	// Calculate the difference in milliseconds
 	const diffInMilliseconds = currentTime.getTime() - timeToCheck.getTime();
-
 	// Calculate the total seconds from milliseconds
 	const totalSeconds = Math.floor(diffInMilliseconds / 1000);
 

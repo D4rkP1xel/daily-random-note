@@ -31,7 +31,7 @@ export default class MyPlugin extends Plugin {
 	private isRandomNoteSuggestionsOpened = false
 	private outsideClickListener: ((event: any) => void) | null = null
 	public currentTimeDif: string = ""
-	private settingsTab: SampleSettingTab | null = null;
+	private settingsTab: DailyRandomNoteSettingTab | null = null;
 	async onload() {
 		await this.loadSettings();
 
@@ -135,7 +135,7 @@ export default class MyPlugin extends Plugin {
 		//});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.settingsTab = new SampleSettingTab(this.app, this)
+		this.settingsTab = new DailyRandomNoteSettingTab(this.app, this)
 
 		this.addSettingTab(this.settingsTab);
 
@@ -155,8 +155,9 @@ export default class MyPlugin extends Plugin {
 			timeToCheck.setFullYear(parseInt(timeSplit[2]))
 			timeToCheck.setHours(this.settings.timeToResetDailyRandomNotes[0])
 			timeToCheck.setMinutes(this.settings.timeToResetDailyRandomNotes[1])
+			timeToCheck.setSeconds(0)
+
 			this.currentTimeDif = timeDif(new Date(), timeToCheck)
-			console.log(this.currentTimeDif)
 			// Update the settings tab display
 			this.settingsTab?.updateTimeDisplay();
 		}, 1000));
@@ -167,7 +168,7 @@ export default class MyPlugin extends Plugin {
 
 			// TEST DELETE AFTER
 			//const today = getDayString(new Date())
-			//this.settings.nextRandomNotesTimestamp = today
+			//this.settings.nextRandomNotesDay = today
 			//await this.saveSettings();
 			// TEST END
 			await this.checkTimeAndOpenRandomNotes()
@@ -227,7 +228,7 @@ export default class MyPlugin extends Plugin {
 //	}
 //}
 
-class SampleSettingTab extends PluginSettingTab {
+class DailyRandomNoteSettingTab extends PluginSettingTab {
 	plugin: MyPlugin;
 
 	//private sampleFolders = ["Folder1", "Folder2/Subfolder", "Another/Folder/Path",
@@ -250,22 +251,6 @@ class SampleSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 
 		containerEl.empty();
-
-		// Adding a setting with a button
-		new Setting(containerEl)
-			.setName("Add One Random Instance")
-			.addButton((button) =>
-				button
-					.setButtonText("Add New")
-					.setCta() // Optional: makes the button more prominent
-					.onClick(async () => {
-						// Define what happens when the button is clicked
-						this.plugin.settings.randomInstances.push({ name: "New Random Instance", includePaths: "", excludePaths: "", openOnStartup: true });
-						await this.plugin.saveSettings();
-						// Refresh the settings tab to show the new input
-						this.display();
-					})
-			);
 
 		const timeSetting = new Setting(containerEl)
 			.setName("Daily Note Reset Time")
@@ -320,11 +305,50 @@ class SampleSettingTab extends PluginSettingTab {
 
 		// Initial time display
 		this.updateTimeDisplay();
+		containerEl.createEl('h1', { text: `Manage Random Instances` });
+
+		// Adding a setting with a button
+		new Setting(containerEl)
+			.setName("Add One Random Instance")
+			.addButton((button) =>
+				button
+					.setButtonText("Add New")
+					.setCta() // Optional: makes the button more prominent
+					.onClick(async () => {
+						// Define what happens when the button is clicked
+						this.plugin.settings.randomInstances.push({ name: "New Random Instance", includePaths: "", excludePaths: "", openOnStartup: true });
+						await this.plugin.saveSettings();
+						// Refresh the settings tab to show the new input
+						this.display();
+					})
+			);
+
 
 		this.plugin.settings.randomInstances.forEach((randomInstance, randomInstanceIndex) => {
-			containerEl.createEl('h3', { text: `${randomInstance.name}` });
+			const collapsibleHeader = containerEl.createDiv();
+			collapsibleHeader.style.display = "flex";
+			collapsibleHeader.style.alignItems = "center";
+			collapsibleHeader.style.justifyContent = "space-between";
 
-			new Setting(containerEl)
+			collapsibleHeader.createEl('h3', { text: `${randomInstance.name}` });
+
+			// Create the toggle button and add it to the same div
+			const toggleButton = collapsibleHeader.createEl("button", { text: "►" });
+			const settingsContent = containerEl.createDiv();
+			settingsContent.style.display = "none"; // Set initial display
+
+			// Toggle functionality for the button
+			toggleButton.addEventListener("click", () => {
+				if (settingsContent.style.display === "block") {
+					settingsContent.style.display = "none";
+					toggleButton.textContent = "►"; // Change to right arrow to indicate collapsed
+				} else {
+					settingsContent.style.display = "block";
+					toggleButton.textContent = "▼"; // Change back to down arrow to indicate expanded
+				}
+			});
+
+			new Setting(settingsContent)
 				.setName('Random Instance Name')
 				.addText(text => {
 					text.setPlaceholder('Insert name.')
@@ -337,7 +361,8 @@ class SampleSettingTab extends PluginSettingTab {
 						this.display()
 					})
 				});
-			new Setting(containerEl)
+
+			new Setting(settingsContent)
 				.setName("Open on Startup?")
 				.addToggle(async (toggle) => {
 					toggle.setValue(randomInstance.openOnStartup)
@@ -347,7 +372,7 @@ class SampleSettingTab extends PluginSettingTab {
 						})
 				});
 
-			new Setting(containerEl)
+			new Setting(settingsContent)
 				.setName('Include Folders')
 				.setDesc('Included paths to folders, separated by ","')
 				.addText(text => {
@@ -378,7 +403,7 @@ class SampleSettingTab extends PluginSettingTab {
 
 				});
 
-			new Setting(containerEl)
+			new Setting(settingsContent)
 				.setName('Exclude Folders')
 				.setDesc('Excluded paths to folders, separated by "," (if this field is NOT empty, obsidian will search for every single file in your vault EXCEPT the folders specified here. "Include Folders" will be ignored as well.)')
 				.addText(text => {
@@ -408,7 +433,7 @@ class SampleSettingTab extends PluginSettingTab {
 					});
 				});
 
-			new Setting(containerEl)
+			new Setting(settingsContent)
 				.setName("Delete \"" + randomInstance.name + "\"")
 				.addButton((button) =>
 					button
@@ -435,7 +460,6 @@ class SampleSettingTab extends PluginSettingTab {
 	updateTimeDisplay() {
 		if (this.timeLeftSetting) {
 			const nameEl = this.timeLeftSetting.querySelector('.setting-item-name');
-			console.log(nameEl)
 			if (nameEl) {
 				nameEl.textContent = `Time left: ${this.plugin.currentTimeDif}`;
 			}
