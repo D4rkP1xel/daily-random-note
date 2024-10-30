@@ -3,7 +3,7 @@
 	"name": "Daily Random Note",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Daily Random Notes in Obsidian.",
+	"description": "Automatically open daily random notes based on your preferences.",
 	"author": "Alexandre Silva",
 	"authorUrl": "https://github.com/D4rkP1xel",
 	"fundingUrl": "https://buymeacoffee.com/alex_swe",
