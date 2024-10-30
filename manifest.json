@@ -3,9 +3,9 @@
 	"name": "Daily Random Note",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "Daily Random Notes in Obsidian.",
+	"author": "Alexandre Silva",
+	"authorUrl": "https://github.com/D4rkP1xel",
+	"fundingUrl": "https://buymeacoffee.com/alex_swe",
 	"isDesktopOnly": false
 }

@@ -389,7 +389,7 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 			});
 
 			new Setting(settingsContent)
-				.setName('Random Instance Name')
+				.setName('Name')
 				.addText(text => {
 					text.setPlaceholder('Insert name.')
 						.setValue(randomInstance.name)
