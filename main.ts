@@ -14,7 +14,7 @@ interface RandomInstance {
 	openOnStartup: boolean,
 }
 
-interface MyPluginSettings {
+interface DailyRandomNoteSettings {
 	randomInstances: RandomInstance[],
 
 	// DD-MM-YYYY
@@ -22,14 +22,14 @@ interface MyPluginSettings {
 	timeToResetDailyRandomNotes: [number, number]
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
+const DEFAULT_SETTINGS: DailyRandomNoteSettings = {
 	randomInstances: [],
 	nextRandomNotesDay: getTomorrowDayString(),
 	timeToResetDailyRandomNotes: [8, 0]
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class DailyRandomNotePlugin extends Plugin {
+	settings: DailyRandomNoteSettings;
 	private popperInstance: null | Instance = null
 	private dropdown: HTMLDivElement | null = null
 	private isRandomNoteSuggestionsOpened = false
@@ -46,7 +46,6 @@ export default class MyPlugin extends Plugin {
 				//new Notice('This is a notice!');
 				this.isRandomNoteSuggestionsOpened = true
 				this.dropdown = document.createElement('div');
-				this.dropdown.style.zIndex = '9998';
 				this.dropdown.classList.add('suggestion-container', 'my-scrollable-suggestions', 'folder-paths-suggestions');
 				document.body.appendChild(this.dropdown);
 
@@ -62,7 +61,6 @@ export default class MyPlugin extends Plugin {
 					option.addEventListener('mouseover', () => option.classList.add('is-hovering-suggestion'));
 					option.addEventListener('mouseout', () => option.classList.remove('is-hovering-suggestion'));
 
-					option.style.zIndex = '9999'
 					option.classList.add('suggestion-item');
 					option.textContent = randomInstance.name;
 					option.addEventListener('mousedown', () => {
@@ -95,7 +93,7 @@ export default class MyPlugin extends Plugin {
 			}
 		});
 		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
+		//ribbonIconEl.addClass('my-plugin-ribbon-class');
 
 		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
 		const statusBarItemEl = this.addStatusBarItem();
@@ -150,9 +148,12 @@ export default class MyPlugin extends Plugin {
 		//});
 
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
+		// check every 5 seconds if time is up to open the random notes
 		this.registerInterval(window.setInterval(() => this.checkTimeAndOpenRandomNotes(), 1000 * 5));
+
+		// update the settings timer every second
 		this.registerInterval(window.setInterval(() => {
-			var timeToCheck = this.getDailyRandomNoteResetTime()
+			let timeToCheck = this.getDailyRandomNoteResetTime()
 			let timeDifVar = timeDif(new Date(), timeToCheck)
 			this.currentTimeDif = formatTime(timeDifVar[0], timeDifVar[1], timeDifVar[2])
 			// Update the settings tab display
@@ -161,13 +162,6 @@ export default class MyPlugin extends Plugin {
 
 		// Wait for the vault and workspace to fully load
 		this.app.workspace.onLayoutReady(async () => {
-			// Now it's safe to call getAbstractFileByPath
-
-			// TEST DELETE AFTER
-			//const today = getDayString(new Date())
-			//this.settings.nextRandomNotesDay = today
-			//await this.saveSettings();
-			// TEST END
 			await this.checkTimeAndOpenRandomNotes()
 		});
 	}
@@ -240,7 +234,7 @@ export default class MyPlugin extends Plugin {
 //}
 
 class DailyRandomNoteSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+	plugin: DailyRandomNotePlugin;
 
 	//private sampleFolders = ["Folder1", "Folder2/Subfolder", "Another/Folder/Path",
 	//	"Another/Folder/Path/Another/Folder/Path/Another/Folder/Path, Folder1", "Folder2/Subfolder", "Another/Folder/Path",
@@ -253,7 +247,7 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 
 	private timeLeftSetting: HTMLElement | null = null;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: DailyRandomNotePlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
@@ -268,10 +262,8 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 			.setDesc("Select the time at which the daily timer resets.");
 
 		// Create a container for the hour and minute selects, styled to align horizontally
-		const timeSelectContainer = timeSetting.controlEl.createDiv("time-select-container");
-		timeSelectContainer.style.display = "flex";
-		timeSelectContainer.style.gap = "8px";
-		timeSelectContainer.style.marginLeft = "auto"; // Pushes it to the right side of the setting
+		const timeSelectContainer = timeSetting.controlEl.createDiv();
+		timeSelectContainer.addClass("time-select-container")
 
 		const hourSelect = document.createElement("select");
 		for (let i = 0; i < 24; i++) {
@@ -284,7 +276,7 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 		// Add the colon between the selects
 		const colon = document.createElement("span");
 		colon.textContent = ":";
-		colon.style.alignSelf = "center"; // Centers the colon vertically
+		colon.addClass("time-colon"); // Centers the colon vertically
 		timeSelectContainer.appendChild(colon);
 
 		const minuteSelect = document.createElement("select");
@@ -355,33 +347,39 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 						this.display();
 					})
 			);
-		addInstance.settingEl.style.marginBottom = "48px"
+		addInstance.settingEl.addClass("add-instance-button")
 
 		this.plugin.settings.randomInstances.forEach((randomInstance, randomInstanceIndex) => {
 			const instanceParentDiv = containerEl.createDiv();
-			instanceParentDiv.style.marginBottom = "48px"
+			instanceParentDiv.addClass("instance-container")
 
 			const collapsibleHeader = instanceParentDiv.createDiv();
-			collapsibleHeader.style.display = "flex";
-			collapsibleHeader.style.alignItems = "center";
-			collapsibleHeader.style.justifyContent = "space-between";
+			collapsibleHeader.addClass("collapsible-container-header")
 
 			collapsibleHeader.createEl('h3', { text: `${randomInstance.name}` });
 
 			// Create the toggle button and add it to the same div
 			const toggleButton = collapsibleHeader.createEl("button", { text: randomInstance.isTabOpen ? "▼" : "►" });
 			const settingsContent = instanceParentDiv.createDiv();
-			settingsContent.style.display = randomInstance.isTabOpen ? "block" : "none"; // Set initial display
+			if (randomInstance.isTabOpen) {
+				settingsContent.classList.add("instance-tab-open");
+				settingsContent.classList.remove("instance-tab-closed");
+			} else {
+				settingsContent.classList.add("instance-tab-closed");
+				settingsContent.classList.remove("instance-tab-open");
+			}
 
 			// Toggle functionality for the button
 			toggleButton.addEventListener("click", async () => {
-				if (settingsContent.style.display === "block") {
-					settingsContent.style.display = "none";
+				if (settingsContent.hasClass("instance-tab-open")) {
+					settingsContent.classList.add("instance-tab-closed");
+					settingsContent.classList.remove("instance-tab-open");
 					this.plugin.settings.randomInstances[randomInstanceIndex].isTabOpen = false;
 					await this.plugin.saveSettings()
 					toggleButton.textContent = "►"; // Change to right arrow to indicate collapsed
 				} else {
-					settingsContent.style.display = "block";
+					settingsContent.classList.add("instance-tab-open");
+					settingsContent.classList.remove("instance-tab-closed");
 					this.plugin.settings.randomInstances[randomInstanceIndex].isTabOpen = true;
 					await this.plugin.saveSettings()
 					toggleButton.textContent = "▼"; // Change back to down arrow to indicate expanded
@@ -481,15 +479,28 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 						.onChange(async (value) => {
 							this.plugin.settings.randomInstances[randomInstanceIndex].useTags = value;
 							await this.plugin.saveSettings();
-							tagsContent.style.display = value ? "block" : "none";
+							if (value) {
+								tagsContent.classList.add("instance-tags-open");
+								tagsContent.classList.remove("instance-tags-closed");
+							} else {
+								tagsContent.classList.add("instance-tags-closed");
+								tagsContent.classList.remove("instance-tags-open");
+							}
 						})
 				});
 
 			const tagsContent = settingsContent.createDiv();
-			tagsContent.style.display = randomInstance.useTags ? "block" : "none"; // Set initial display
+			if (randomInstance.useTags) {
+				tagsContent.classList.add("instance-tags-open");
+				tagsContent.classList.remove("instance-tags-closed");
+			} else {
+				tagsContent.classList.add("instance-tags-closed");
+				tagsContent.classList.remove("instance-tags-open");
+			}
+
 			new Setting(tagsContent)
 				.setName("All tags required?")
-				.setDesc("If toggled on, obsidian will only search for files containing ALL tags specified. Otherwise any file containing at least one of the tags will be considered valid.")
+				.setDesc("If toggled on, obsidian will only search for files containing ALL tags simultaneously. Otherwise any file containing at least one of the tags will be considered valid.")
 				.addToggle(async (toggle) => {
 					toggle.setValue(randomInstance.allTagsRequired)
 						.onChange(async (value) => {
@@ -562,7 +573,6 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 	private showSuggestions(textEl: TextComponent, randomInstanceIndex: number, isIncludedPath: boolean): void {
 		// Create dropdown for suggestions
 		const dropdown = document.createElement('div');
-		dropdown.style.zIndex = '9998';
 		dropdown.classList.add('suggestion-container', 'my-scrollable-suggestions', 'folder-paths-suggestions');
 		document.body.appendChild(dropdown);
 
@@ -583,7 +593,7 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 
 	private resetDropdown() {
 		const dropdown = document.getElementsByClassName("folder-paths-suggestions")[0]
-		dropdown.innerHTML = ''
+		dropdown.empty()
 	}
 
 	private populateDropdown(textEl: TextComponent, randomInstanceIndex: number, isIncludedPath: boolean) {
@@ -597,7 +607,6 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 			option.addEventListener('mouseover', () => option.classList.add('is-hovering-suggestion'));
 			option.addEventListener('mouseout', () => option.classList.remove('is-hovering-suggestion'));
 
-			option.style.zIndex = '9999'
 			option.classList.add('suggestion-item');
 			option.textContent = path;
 			option.addEventListener('mousedown', async (event) => {

@@ -14,3 +14,45 @@
 	overflow-x: auto;
 	/* Enable horizontal scrolling */
 }
+
+.time-select-container {
+	display: flex;
+	gap: 8px;
+	margin-left: auto;
+}
+
+.add-instance-button {
+	margin-bottom: 48px;
+}
+
+.instance-container {
+	margin-bottom: 48px;
+}
+
+.collapsible-container-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+/* Display block when the tab is open */
+.instance-tab-open {
+	display: block;
+}
+
+/* Display none when the tab is closed */
+.instance-tab-closed {
+	display: none;
+}
+
+.instance-tags-open {
+	display: block;
+}
+
+.instance-tags-closed {
+	display: none;
+}
+
+.time-colon {
+	align-self: center;
+}
