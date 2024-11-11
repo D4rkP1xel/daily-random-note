@@ -2,10 +2,9 @@ import { randomInt } from "crypto";
 import { App, Notice, TFile, TFolder } from "obsidian";
 
 // Retrieve folder paths in the vault
-export function getFolderPaths(randomInstancePaths: string, currentString: string): string[] {
+export function getFolderPaths(app: App, randomInstancePaths: string, currentString: string): string[] {
 	let randomInstancePathsArray = getPathsArrayFromPathList(randomInstancePaths, false)
-	return this.app.vault.getAllLoadedFiles()
-		.filter((file: any) => file instanceof TFolder)
+	return app.vault.getAllFolders(true)
 		.map((folder: TFolder) => folder.path)
 		.filter((folderPath: string) => {
 			let lastPathSplit = currentString.split(",").map((s) => s.trim())
