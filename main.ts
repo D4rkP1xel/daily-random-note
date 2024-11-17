@@ -115,7 +115,17 @@ export default class DailyRandomNotePlugin extends Plugin {
 		this.app.workspace.onLayoutReady(async () => {
 			await this.checkTimeAndOpenRandomNotes()
 		});
+
+		// Load each randomInstance as a command on startup 
+		this.settings.randomInstances.forEach(randomInstance => {
+			this.addCommand({
+				id: `Open random note from: ${randomInstance.name}`,
+				name: randomInstance.name,
+				callback: async () => { this.openRandomNoteWithInstance(randomInstance) }
+			});
+		});
 	}
+
 	getDailyRandomNoteResetTime() {
 		let timeSplit = this.settings.nextRandomNotesDay.split("/")
 		let timeToCheck: Date = new Date()
@@ -128,6 +138,7 @@ export default class DailyRandomNotePlugin extends Plugin {
 
 		return timeToCheck
 	}
+
 	async checkTimeAndOpenRandomNotes() {
 		const today = getDayString(new Date())
 
