@@ -1,7 +1,7 @@
 {
 	"id": "daily-random-note",
 	"name": "Daily Random Note",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"minAppVersion": "0.15.0",
 	"description": "Automatically open daily random notes based on your preferences.",
 	"author": "Alexandre Silva",

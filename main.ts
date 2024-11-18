@@ -3,6 +3,8 @@ import { createPopper, Instance } from '@popperjs/core';
 import { addPathToPathList, getFolderPaths, selectRandomFileFromPaths } from 'utils/pathOperations';
 import { compareDates, formatTime, getDayFromString, getDayString, getTomorrowDayString, isTimeReadyToShowNote, timeDif } from 'utils/timeUtils';
 
+const COMMAND_ID_PREFIX = "open-random-note-from-"
+
 interface RandomInstance {
 	isTabOpen: boolean,
 	includePaths: string,
@@ -12,6 +14,7 @@ interface RandomInstance {
 	tags: string,
 	name: string,
 	openOnStartup: boolean,
+	commandID: string,
 }
 
 interface DailyRandomNoteSettings {
@@ -20,12 +23,14 @@ interface DailyRandomNoteSettings {
 	// DD-MM-YYYY
 	nextRandomNotesDay: string,
 	timeToResetDailyRandomNotes: [number, number]
+	previousCommandIDs: string[]
 }
 
 const DEFAULT_SETTINGS: DailyRandomNoteSettings = {
 	randomInstances: [],
 	nextRandomNotesDay: getTomorrowDayString(),
-	timeToResetDailyRandomNotes: [8, 0]
+	timeToResetDailyRandomNotes: [8, 0],
+	previousCommandIDs: [],
 }
 
 export default class DailyRandomNotePlugin extends Plugin {
@@ -38,7 +43,7 @@ export default class DailyRandomNotePlugin extends Plugin {
 	private settingsTab: DailyRandomNoteSettingTab | null = null;
 	async onload() {
 		await this.loadSettings();
-
+		await this.fixRandomInstancesWithNoCmdID()
 		// This creates an icon in the left ribbon.
 		const ribbonIconEl = this.addRibbonIcon('dices', 'Daily Random Note', (evt: MouseEvent) => {
 			// Called when the user clicks the icon.
@@ -117,13 +122,37 @@ export default class DailyRandomNotePlugin extends Plugin {
 		});
 
 		// Load each randomInstance as a command on startup 
+		this.updateCommandPalette()
+	}
+
+	updateCommandPalette() {
+		// Load each randomInstance as a command on startup 
+		this.settings.previousCommandIDs.forEach((cmd) => {
+			this.removeCommand(cmd)
+		})
+		this.settings.previousCommandIDs = []
+
 		this.settings.randomInstances.forEach(randomInstance => {
+			this.settings.previousCommandIDs.push(randomInstance.commandID)
 			this.addCommand({
-				id: `Open random note from: ${randomInstance.name}`,
-				name: randomInstance.name,
+				id: randomInstance.commandID,
+				name: `Open one '${randomInstance.name}'`,
 				callback: async () => { this.openRandomNoteWithInstance(randomInstance) }
 			});
 		});
+	}
+
+	// only runs on startup
+	// fixes issues with already created RandomInstances (which didn't have commandIDs)
+	async fixRandomInstancesWithNoCmdID() {
+		let didFindInstanceWithNoCommandID = false
+		this.settings.randomInstances.forEach(randomInstance => {
+			if (!randomInstance.commandID) {
+				didFindInstanceWithNoCommandID = true
+				randomInstance.commandID = `${COMMAND_ID_PREFIX}${randomInstance.name}`
+			}
+		})
+		if (didFindInstanceWithNoCommandID) await this.saveSettings()
 	}
 
 	getDailyRandomNoteResetTime() {
@@ -175,13 +204,13 @@ export default class DailyRandomNotePlugin extends Plugin {
 	}
 
 	async saveSettings() {
+		this.updateCommandPalette()
 		await this.saveData(this.settings);
 	}
 }
 
 class DailyRandomNoteSettingTab extends PluginSettingTab {
 	plugin: DailyRandomNotePlugin;
-
 	private includedFoldersPopperInstance: null | Instance = null
 	private excludedFoldersPopperInstance: null | Instance = null
 
@@ -283,8 +312,10 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 					.setCta() // Optional: makes the button more prominent
 					.onClick(async () => {
 						// Define what happens when the button is clicked
-						this.plugin.settings.randomInstances.push({ name: "New random instance", includePaths: "", excludePaths: "", openOnStartup: true, useTags: false, tags: "", allTagsRequired: true, isTabOpen: true, });
+						let randomInstanceName = "New Random Instance"
+						this.plugin.settings.randomInstances.push({ name: randomInstanceName, includePaths: "", excludePaths: "", openOnStartup: true, useTags: false, tags: "", allTagsRequired: true, isTabOpen: true, commandID: `${COMMAND_ID_PREFIX}${randomInstanceName}` });
 						await this.plugin.saveSettings();
+
 						// Refresh the settings tab to show the new input
 						this.display();
 					})
@@ -335,6 +366,7 @@ class DailyRandomNoteSettingTab extends PluginSettingTab {
 						.setValue(randomInstance.name)
 						.onChange(async (value) => {
 							this.plugin.settings.randomInstances[randomInstanceIndex].name = value;
+							this.plugin.settings.randomInstances[randomInstanceIndex].commandID = `${COMMAND_ID_PREFIX}${value}`;
 							await this.plugin.saveSettings();
 						});
 					text.inputEl.addEventListener("blur", () => {
