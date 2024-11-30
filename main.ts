@@ -116,11 +116,6 @@ export default class DailyRandomNotePlugin extends Plugin {
 			this.settingsTab?.updateTimeDisplay();
 		}, 1000));
 
-		// Wait for the vault and workspace to fully load
-		this.app.workspace.onLayoutReady(async () => {
-			await this.checkTimeAndOpenRandomNotes()
-		});
-
 		// Load each randomInstance as a command on startup 
 		this.updateCommandPalette()
 	}
@@ -173,12 +168,12 @@ export default class DailyRandomNotePlugin extends Plugin {
 
 		let cmp = compareDates(today, this.settings.nextRandomNotesDay)
 		if (cmp == 1 || (cmp == 0 && isTimeReadyToShowNote([new Date().getHours(), new Date().getMinutes()], this.settings.timeToResetDailyRandomNotes))) {
-			this.settings.nextRandomNotesDay = getTomorrowDayString()
-			await this.saveSettings();
 			this.settings.randomInstances.forEach((randomInstance) => {
 				if (randomInstance.openOnStartup)
 					this.openRandomNote(randomInstance)
 			})
+			this.settings.nextRandomNotesDay = getTomorrowDayString()
+			await this.saveSettings();
 		}
 
 	}
