@@ -103,21 +103,24 @@ export default class DailyRandomNotePlugin extends Plugin {
 
 		this.addSettingTab(this.settingsTab);
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		// check every 5 seconds if time is up to open the random notes
-		this.registerInterval(window.setInterval(() => this.checkTimeAndOpenRandomNotes(), 1000 * 5));
-
-		// update the settings timer every second
-		this.registerInterval(window.setInterval(() => {
-			let timeToCheck = this.getDailyRandomNoteResetTime()
-			let timeDifVar = timeDif(new Date(), timeToCheck)
-			this.currentTimeDif = formatTime(timeDifVar[0], timeDifVar[1], timeDifVar[2])
-			// Update the settings tab display
-			this.settingsTab?.updateTimeDisplay();
-		}, 1000));
-
 		// Load each randomInstance as a command on startup 
 		this.updateCommandPalette()
+
+		// Safely start intervals only after workspace is ready
+		this.app.workspace.onLayoutReady(() => {
+			// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
+			// check every 5 seconds if time is up to open the random notes
+			this.registerInterval(window.setInterval(() => this.checkTimeAndOpenRandomNotes(), 1000 * 5));
+
+			// update the settings timer every second
+			this.registerInterval(window.setInterval(() => {
+				let timeToCheck = this.getDailyRandomNoteResetTime()
+				let timeDifVar = timeDif(new Date(), timeToCheck)
+				this.currentTimeDif = formatTime(timeDifVar[0], timeDifVar[1], timeDifVar[2])
+				// Update the settings tab display
+				this.settingsTab?.updateTimeDisplay();
+			}, 1000));
+		})
 	}
 
 	updateCommandPalette() {
@@ -168,6 +171,7 @@ export default class DailyRandomNotePlugin extends Plugin {
 
 		let cmp = compareDates(today, this.settings.nextRandomNotesDay)
 		if (cmp == 1 || (cmp == 0 && isTimeReadyToShowNote([new Date().getHours(), new Date().getMinutes()], this.settings.timeToResetDailyRandomNotes))) {
+			console.log(this.settings.randomInstances)
 			this.settings.randomInstances.forEach((randomInstance) => {
 				if (randomInstance.openOnStartup)
 					this.openRandomNote(randomInstance)

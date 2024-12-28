@@ -1,6 +1,6 @@
 {
 	"name": "daily-random-note",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"description": "Automatically open daily random notes based on your preferences.",
 	"main": "main.js",
 	"scripts": {
