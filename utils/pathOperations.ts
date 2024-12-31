@@ -1,5 +1,5 @@
-import { randomInt } from "crypto";
 import { App, Notice, TFile, TFolder } from "obsidian";
+import { randomInt } from "./math";
 
 // Retrieve folder paths in the vault
 export function getFolderPaths(app: App, randomInstancePaths: string, currentString: string): string[] {

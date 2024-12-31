@@ -21,18 +21,20 @@ export function getTomorrowDayString(): string {
 }
 
 export function compareDates(date1String: string, date2String: string) {
+	// THIS ASSUMES THAT THE MONTHS COME INDEX BASED AND NOT 1-12 BASED
 	let date1Split = date1String.split("/")
 	let date2Split = date2String.split("/")
+
 
 	// Create date objects
 	let date1 = new Date(
 		parseInt(date1Split[2]),  // Year
-		parseInt(date1Split[1]) - 1, // Month (zero-based in JS)
+		parseInt(date1Split[1]), // Month (zero-based in JS)
 		parseInt(date1Split[0])  // Day
 	);
 	let date2 = new Date(
 		parseInt(date2Split[2]),  // Year
-		parseInt(date2Split[1]) - 1, // Month (zero-based in JS)
+		parseInt(date2Split[1]), // Month (zero-based in JS)
 		parseInt(date2Split[0])  // Day
 	);
 

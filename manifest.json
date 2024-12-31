@@ -1,11 +1,11 @@
 {
 	"id": "daily-random-note",
 	"name": "Daily Random Note",
-	"version": "1.0.3",
+	"version": "1.0.5",
 	"minAppVersion": "0.15.0",
 	"description": "Automatically open daily random notes based on your preferences.",
 	"author": "Alexandre Silva",
 	"authorUrl": "https://github.com/D4rkP1xel",
 	"fundingUrl": "https://buymeacoffee.com/alex_swe",
-	"isDesktopOnly": true 
+	"isDesktopOnly":  false
 }
