@@ -171,7 +171,6 @@ export default class DailyRandomNotePlugin extends Plugin {
 
 		let cmp = compareDates(today, this.settings.nextRandomNotesDay)
 		if (cmp == 1 || (cmp == 0 && isTimeReadyToShowNote([new Date().getHours(), new Date().getMinutes()], this.settings.timeToResetDailyRandomNotes))) {
-			console.log(this.settings.randomInstances)
 			this.settings.randomInstances.forEach((randomInstance) => {
 				if (randomInstance.openOnStartup)
 					this.openRandomNote(randomInstance)

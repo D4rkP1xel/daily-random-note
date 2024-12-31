@@ -25,7 +25,6 @@ export function compareDates(date1String: string, date2String: string) {
 	let date1Split = date1String.split("/")
 	let date2Split = date2String.split("/")
 
-
 	// Create date objects
 	let date1 = new Date(
 		parseInt(date1Split[2]),  // Year
